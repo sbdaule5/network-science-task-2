@@ -1,8 +1,9 @@
 import time
+from itertools import chain
 from multiprocessing import Pool, cpu_count
+
 import igraph as ig
 
-from collections import Counter
 
 def read_adjlist(filename: str):
     adjacency_list = {}
@@ -26,27 +27,31 @@ def read_adjlist(filename: str):
     return G
 
 
-def compute_stress_centrality(G):
-    stress = Counter()
+def compute_max_stress_centrality(G):
+    vcount = G.vcount()
+    stress = [0] * vcount
 
-    for source in range(G.vcount()):
-        paths = G.get_shortest_paths(source, to=None, mode="ALL", output="vpath")
-        for path in paths:
-            # Exclude the source and target nodes themselves
-            for node in path[1:-1]:
-                stress[node] += 1
+    for i in range(vcount):
+        paths = G.get_shortest_paths(
+            i, to=range(i + 1, vcount), mode="ALL", output="vpath"
+        )
 
-    return [stress[i] for i in range(G.vcount())]
+        # Process all intermediate nodes in one sweep
+        for node in chain.from_iterable(path[1:-1] for path in paths if len(path) > 2):
+            stress[node] += 1
+
+    return max(stress)
+
 
 def compute_betweenness(args):
     graph, u, v = args
     myG = graph.copy()
     myG.add_edge(u, v)
     betw = myG.betweenness()
-    stress = compute_stress_centrality(myG)
     max_betw = max(betw)
-    max_stress = max(stress)
-    return max_betw, max_stress, (u,v)
+    max_stress = compute_max_stress_centrality(myG)
+    return max_betw, max_stress, (u, v)
+
 
 def do_pool():
     G = read_adjlist("graph1.adjlist")
@@ -64,7 +69,6 @@ def do_pool():
     with Pool(processes=num_processes) as pool:
         start_time = time.time()
         results = pool.map(compute_betweenness, args)
-        # total_time = sum(times)
         best_betw = min(results, key=lambda k: k[0])
         best_stress = min(results, key=lambda k: k[1])
         print(f"best betw => {best_betw}")
@@ -72,6 +76,7 @@ def do_pool():
 
     end_time = time.time()
     print(f"Running time => {end_time - start_time}")
+
 
 if __name__ == "__main__":
     do_pool()
