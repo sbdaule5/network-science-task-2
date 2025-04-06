@@ -1,3 +1,4 @@
+import sys
 import time
 from itertools import chain
 from multiprocessing import Pool, cpu_count
@@ -43,7 +44,7 @@ def compute_max_stress_centrality(G):
     return max(stress)
 
 
-def compute_betweenness(args):
+def compute_centralities(args):
     graph, u, v = args
     myG = graph.copy()
     myG.add_edge(u, v)
@@ -53,8 +54,10 @@ def compute_betweenness(args):
     return max_betw, max_stress, (u, v)
 
 
-def do_pool():
-    G = read_adjlist("graph1.adjlist")
+def do_pool(filename):
+    G = read_adjlist(filename)
+    print(f"Original maximum betweenness centrality is {max(G.betweenness())}")
+    print(f"Original maximum stress centrality is {compute_max_stress_centrality(G)}")
     start_time = time.time()
     # Calculate betweenness centrality
     missing_edges = [
@@ -64,19 +67,27 @@ def do_pool():
         if not G.are_adjacent(i, j)
     ]
     args = [(G, u, v) for u, v in missing_edges]
+    print(len(args))
 
     num_processes = min(cpu_count(), len(missing_edges))
     with Pool(processes=num_processes) as pool:
         start_time = time.time()
-        results = pool.map(compute_betweenness, args)
+        # results = pool.map(compute_centralities, args)
+        results = [compute_centralities(arg) for arg in args[:1000]]
         best_betw = min(results, key=lambda k: k[0])
         best_stress = min(results, key=lambda k: k[1])
-        print(f"best betw => {best_betw}")
-        print(f"best stress => {best_stress}")
+        print(f"Optimization for betweenness centrality => {best_betw}")
+        print(f"Optimization for stress centrality => {best_stress}")
 
     end_time = time.time()
     print(f"Running time => {end_time - start_time}")
 
 
 if __name__ == "__main__":
-    do_pool()
+
+    if len(sys.argv) != 2:
+        print("Usage: python script.py <arg>")
+        sys.exit(1)
+
+    arg = sys.argv[1]
+    do_pool(arg)
