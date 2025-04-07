@@ -33,8 +33,8 @@ def compute_max_stress_centrality(G):
     stress = [0] * vcount
 
     for i in range(vcount):
-        paths = G.get_shortest_paths(
-            i, to=range(i + 1, vcount), mode="ALL", output="vpath"
+        paths = G.get_all_shortest_paths(
+            i, to=range(i + 1, vcount), mode="ALL"
         )
 
         # Process all intermediate nodes in one sweep
